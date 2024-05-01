@@ -1,0 +1,7 @@
+recuperer les parkings : /parkings
+recuperer tous les utilisateurs : /users
+creer un nouvel utilisateur : /register
+authentification de l'utilisateur : /login
+afficher les details d'un parking : /parkings/:id
+effectuer une reservation : /reservations
+afficher mes reservations : /reservations/:userId
