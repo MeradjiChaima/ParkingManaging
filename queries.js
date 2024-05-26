@@ -131,6 +131,47 @@ function getBusInfoByParkingID(parkingID, callback) {
     });
 }
 
+function filterParkings(commune, types, maxPrice, callback) {
+    // Construire la requête SQL de base
+    let sql = "SELECT DISTINCT p.* FROM parkings p INNER JOIN places pl ON p.ID_parking = pl.ID_parking WHERE 1 = 1";
+
+    // Ajouter le filtre par commune si spécifié
+    if (commune) {
+        sql += " AND p.Commune = ?";
+    }
+
+    // Ajouter les types de places à la requête SQL si spécifiés
+    if (types && types.length > 0) {
+        let typesCondition = types.map(type => "pl.Type = '" + type + "'").join(" OR ");
+        sql += " AND (" + typesCondition + ")";
+    }
+
+    // Ajouter le filtre de prix maximum si spécifié
+    if (maxPrice) {
+        sql += " AND pl.Prix_place <= ?";
+    }
+
+    // Paramètres de la requête SQL
+    let params = [];
+    if (commune) {
+        params.push(commune);
+    }
+    if (maxPrice) {
+        params.push(maxPrice);
+    }
+
+    // Exécuter la requête SQL avec les valeurs des paramètres
+    connection.query(sql, params, (err, result) => {
+        if (err) {
+            console.error('Erreur lors de la recherche des parkings :', err);
+            return callback(err, null);
+        }
+        console.log('Résultats de la recherche récupérés avec succès.');
+        callback(null, result);
+    });
+}
+
+
 // liste users
 //---------------------------------------------------------------------------
 function getAllUsers(callback) {
@@ -211,6 +252,34 @@ function getUserById(idUser, callback) {
 }
 
 
+function updateUserPhoto(userId, newPhotoPath, callback) {
+    const fs = require('fs');
+    const path = require('path');
+
+    // Extraire le nom du fichier à partir du chemin complet de l'image
+    const fileName = path.basename(newPhotoPath);
+
+    // Mettre à jour le nom du fichier dans la base de données
+    const sqlUpdate = 'UPDATE Utilisateurs SET Photo = ? WHERE ID_utilisateur = ?';
+    connection.query(sqlUpdate, [fileName, userId], (err, result) => {
+        if (err) {
+            console.error('Erreur lors de la mise à jour de la photo de l\'utilisateur :', err);
+            return callback(err);
+        }
+
+        // Déplacer la photo vers le dossier images/users avec le nom de fichier extrait
+        const imagePath = path.join(__dirname, 'images/users', fileName);
+        fs.rename(newPhotoPath, imagePath, (err) => {
+            if (err) {
+                console.error('Erreur lors du déplacement de la photo :', err);
+                return callback(err);
+            }
+
+            console.log('La photo a été mise à jour avec succès et déplacée vers le dossier images/users');
+            callback(null);
+        });
+    });
+}
 
 
 // Get all reservations
@@ -242,7 +311,7 @@ function getAllReservationsByEmail(emailUser, callback) {
 
 // Faire une réservation
 function makeReservation(reservationData, callback) {
-    const { EmailUser, ID_parking, Date_debut, Date_fin, Code_QR, Type_place } = reservationData;
+    const { ID_utilisateur, ID_parking, Date_debut, Date_fin, Code_QR, Type_place } = reservationData;
 
     connection.beginTransaction(function (err) {
         if (err) {
@@ -286,8 +355,8 @@ function makeReservation(reservationData, callback) {
                         });
                     }
 
-                    const insertReservationSql = 'INSERT INTO Reservations (EmailUser, ID_parking, ID_place, Date_debut, Date_fin, Code_QR, Type_place) VALUES (?, ?, ?, ?, ?, ?, ?)';
-                    connection.query(insertReservationSql, [EmailUser, ID_parking, ID_place, Date_debut, Date_fin, Code_QR, Type_place], function (err, result) {
+                    const insertReservationSql = 'INSERT INTO Reservations (ID_utilisateur , ID_parking, ID_place, Date_debut, Date_fin, Code_QR, Type_place) VALUES (?, ?, ?, ?, ?, ?, ?)';
+                    connection.query(insertReservationSql, [ID_utilisateur, ID_parking, ID_place, Date_debut, Date_fin, Code_QR, Type_place], function (err, result) {
                         if (err) {
                             return connection.rollback(function () {
                                 console.error('Erreur lors de l\'insertion de la réservation :', err);
@@ -341,4 +410,4 @@ function getUserReservations(userId, callback) {
 }
 
 
-module.exports = {getUserById, getUserIdByEmail , getBusInfoByParkingID, getBikeInfoByParkingID, getCarInfoByParkingID, getReviewsByParkingID, getServicesByParkingID, getAllReservationsByEmail, getAllReservations, getAllParkings , getAllUsers ,createUser, authenticateUser ,getParkingDetails, makeReservation, getUserReservations , searchParkingByKeyword};
+module.exports = {filterParkings, updateUserPhoto ,getUserById, getUserIdByEmail , getBusInfoByParkingID, getBikeInfoByParkingID, getCarInfoByParkingID, getReviewsByParkingID, getServicesByParkingID, getAllReservationsByEmail, getAllReservations, getAllParkings , getAllUsers ,createUser, authenticateUser ,getParkingDetails, makeReservation, getUserReservations , searchParkingByKeyword};

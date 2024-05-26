@@ -1,13 +1,47 @@
 const express = require('express');
-const { getUserById,getUserIdByEmail, getBusInfoByParkingID , getBikeInfoByParkingID ,  getCarInfoByParkingID, getReviewsByParkingID, getServicesByParkingID,getAllReservationsByEmail, getAllReservations,getAllParkings , getAllUsers ,createUser, authenticateUser ,getParkingDetails, makeReservation, getUserReservations ,searchParkingByKeyword } = require('./queries');
+const { filterParkings, updateUserPhoto , getUserById,getUserIdByEmail, getBusInfoByParkingID , getBikeInfoByParkingID ,  getCarInfoByParkingID, getReviewsByParkingID, getServicesByParkingID,getAllReservationsByEmail, getAllReservations,getAllParkings , getAllUsers ,createUser, authenticateUser ,getParkingDetails, makeReservation, getUserReservations ,searchParkingByKeyword } = require('./queries');
 const path = require('path'); // Déplacez cette ligne vers le haut
-
+const multer = require('multer');
 const app = express();
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 
 
 //--------------------------------Routes Usrs ----------------------------------------------
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'images/users');
+    },
+    filename: function (req, file, cb) {
+        cb(null, file.originalname); // Utilisez le nom de fichier d'origine
+    }
+});
+
+// Configurer multer pour l'upload de fichiers
+const upload = multer({ storage: storage });
+
+app.put('/users/:userId/photo', upload.single('photo'), (req, res) => {
+    const userId = req.params.userId;
+    const newPhotoPath = req.file.path; // Utilisez req.file.path pour obtenir le chemin de l'image téléchargée
+
+    updateUserPhoto(userId, newPhotoPath, (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erreur lors de la mise à jour de la photo de l\'utilisateur.' });
+        }
+        
+        res.status(200).json({ message: 'La photo de l\'utilisateur a été mise à jour avec succès.' });
+    });
+});
+
+
+
+app.get('/users/:imageName', (req, res) => {
+    const imageName = req.params.imageName;
+    const imagePath = path.join(__dirname, 'images/users', imageName);
+    res.sendFile(imagePath);
+});
+
+app.use(express.static('images/users'));
 
 app.get('/users', (req, res) => {
     getAllUsers((err, users) => {
@@ -78,6 +112,7 @@ app.post('/login', (req, res) => {
         res.json({ message: 'Authentification réussie.', user });
     });
 });
+
 
 //--------------------------------------Routes Parkings--------------------------------------------
 
@@ -178,6 +213,16 @@ app.get('/busInfo/:parkingID', (req, res) => {
             return res.status(500).json({ error: 'Error retrieving bus info.' });
         }
         res.json(busInfo);
+    });
+});
+
+app.post('/FilterParkings', (req, res) => {
+    const { commune, types, maxPrice } = req.body;
+    filterParkings(commune, types, maxPrice, (err, results) => {
+        if (err) {
+            return res.status(500).json({ error: 'Erreur lors de la recherche des parkings.' });
+        }
+        res.json(results);
     });
 });
 
